@@ -1,9 +1,14 @@
 package com.bltucker.blog.plugins
 
 import com.bltucker.blog.DataRepository
+import com.bltucker.blog.ServiceAWrapper
 import com.bltucker.blog.ServiceBWrapper
+import io.github.resilience4j.bulkhead.BulkheadFullException
+import io.github.resilience4j.bulkhead.BulkheadRegistry
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry
+import io.github.resilience4j.kotlin.bulkhead.BulkheadConfig
+import io.github.resilience4j.kotlin.bulkhead.executeSuspendFunction
 import io.github.resilience4j.kotlin.circuitbreaker.CircuitBreakerConfig
 import io.github.resilience4j.kotlin.circuitbreaker.executeSuspendFunction
 import io.github.resilience4j.kotlin.ratelimiter.RateLimiterConfig
@@ -43,7 +48,17 @@ fun Application.configureRouting() {
     val serviceBCircuitBreaker = circuitBreakerRegistry.circuitBreaker("ServiceB")
 
     val serviceBWrapper = ServiceBWrapper()
+    val serviceAWrapper = ServiceAWrapper()
 
+    val bulkheadConfig = BulkheadConfig {
+        maxConcurrentCalls(4)
+        maxWaitDuration(Duration.ofSeconds(1))
+    }
+
+    val bulkheadRegistry = BulkheadRegistry.of(bulkheadConfig)
+
+    val serviceBBulkhead = bulkheadRegistry.bulkhead("ServiceB")
+    val serviceABulkhead = bulkheadRegistry.bulkhead("ServiceA")
 
     routing {
         get("/someImportantResource") {
@@ -67,6 +82,31 @@ fun Application.configureRouting() {
 
                 call.respond(mapOf("data" to data))
             } catch(ex: CallNotPermittedException){
+                call.respond(HttpStatusCode.ServiceUnavailable)
+            }
+        }
+
+
+        get("/endpoint1"){
+            try{
+                val data = serviceABulkhead.executeSuspendFunction {
+                    serviceAWrapper.remoteCall()
+                }
+
+                call.respond(mapOf("data" to data))
+            } catch(ex: BulkheadFullException){
+                call.respond(HttpStatusCode.ServiceUnavailable)
+            }
+        }
+
+        get("/endpoint2"){
+            try{
+                val data = serviceBBulkhead.executeSuspendFunction {
+                    serviceBWrapper.slowCall()
+                }
+
+                call.respond(mapOf("data" to data))
+            } catch(ex: BulkheadFullException){
                 call.respond(HttpStatusCode.ServiceUnavailable)
             }
         }

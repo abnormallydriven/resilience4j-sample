@@ -15,4 +15,8 @@ class ServiceBWrapper {
         }
     }
 
+    suspend fun slowCall(): String{
+        delay(8000)
+        return "slow data"
+    }
 }
