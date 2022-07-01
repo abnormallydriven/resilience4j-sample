@@ -31,4 +31,12 @@ dependencies {
     implementation("ch.qos.logback:logback-classic:$logback_version")
     testImplementation("io.ktor:ktor-server-tests-jvm:$ktor_version")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:$kotlin_version")
+
+    val resilience4jVersion = "1.7.1"
+
+    implementation("io.github.resilience4j:resilience4j-kotlin:${resilience4jVersion}")
+    implementation("io.github.resilience4j:resilience4j-circuitbreaker:${resilience4jVersion}")
+    implementation("io.github.resilience4j:resilience4j-ratelimiter:${resilience4jVersion}")
+    implementation("io.github.resilience4j:resilience4j-bulkhead:${resilience4jVersion}")
+
 }
